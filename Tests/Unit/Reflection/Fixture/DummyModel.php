@@ -19,6 +19,7 @@ namespace TYPO3\CMS\Extbase\Tests\Unit\Reflection\Fixture;
 
 use TYPO3\CMS\Extbase\Annotation as Extbase;
 use TYPO3\CMS\Extbase\DomainObject\AbstractEntity;
+use TYPO3\CMS\Extbase\Validation\Validator\NotEmptyValidator;
 
 /**
  * Fixture model
@@ -36,4 +37,23 @@ class DummyModel extends AbstractEntity
      * @Extbase\Validate("TYPO3\CMS\Extbase\Validation\Validator\NotEmptyValidator")
      */
     protected $propertyWithValidateAnnotations;
+
+    #[Extbase\Validate(['validator' => 'StringLength', 'options' => ['minimum' => 1, 'maximum' => 10]])]
+    #[Extbase\Validate(['validator' => 'NotEmpty'])]
+    #[Extbase\Validate(['validator' => 'TYPO3.CMS.Extbase:NotEmpty'])]
+    #[Extbase\Validate(['validator' => 'TYPO3.CMS.Extbase.Tests.Unit.Reflection.Fixture:DummyValidator'])]
+    #[Extbase\Validate(['validator' => '\TYPO3\CMS\Extbase\Validation\Validator\NotEmptyValidator'])]
+    #[Extbase\Validate(['validator' => NotEmptyValidator::class])]
+    protected $propertyWithValidateAttributes;
+
+    public function __construct(
+        #[Extbase\Validate(['validator' => 'StringLength', 'options' => ['minimum' => 1, 'maximum' => 10]])]
+        #[Extbase\Validate(['validator' => 'NotEmpty'])]
+        #[Extbase\Validate(['validator' => 'TYPO3.CMS.Extbase:NotEmpty'])]
+        #[Extbase\Validate(['validator' => 'TYPO3.CMS.Extbase.Tests.Unit.Reflection.Fixture:DummyValidator'])]
+        #[Extbase\Validate(['validator' => '\TYPO3\CMS\Extbase\Validation\Validator\NotEmptyValidator'])]
+        #[Extbase\Validate(['validator' => NotEmptyValidator::class])]
+        public readonly string $dummyPromotedProperty
+    ) {
+    }
 }
