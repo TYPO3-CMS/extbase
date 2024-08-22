@@ -21,6 +21,7 @@ use TYPO3\CMS\Core\View\ViewInterface;
 
 /**
  * @internal only to be used within Extbase, not part of TYPO3 Core API.
+ * @deprecated since TYPO3 v13, will be removed in v14.
  */
 interface ViewResolverInterface
 {
