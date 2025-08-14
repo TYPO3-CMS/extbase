@@ -18,6 +18,9 @@ return [
         'enablecolumns' => [
             'disabled' => 'hidden',
         ],
+        'extbase' => [
+            'enableHistoryTracking' => false,
+        ],
         'iconfile' => 'EXT:blog_example/Resources/Public/Icons/icon_tx_blogexample_domain_model_person.gif',
     ],
     'columns' => [

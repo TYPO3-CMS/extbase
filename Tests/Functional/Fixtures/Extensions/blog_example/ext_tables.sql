@@ -1,3 +1,12 @@
+# Table for NoTcaEntity - intentionally has no TCA definition to test history tracker fallback
+CREATE TABLE tx_blogexample_domain_model_notcaentity (
+	uid int(11) NOT NULL AUTO_INCREMENT,
+	pid int(11) DEFAULT 0 NOT NULL,
+	title varchar(255) DEFAULT '' NOT NULL,
+	PRIMARY KEY (uid),
+	KEY parent (pid)
+);
+
 CREATE TABLE tx_blogexample_domain_model_person (
 	# type=passthrough needs manual configuration
 	salutation varchar(4) DEFAULT '' NOT NULL,

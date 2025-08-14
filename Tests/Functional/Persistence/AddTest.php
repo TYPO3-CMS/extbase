@@ -18,20 +18,27 @@ declare(strict_types=1);
 namespace TYPO3\CMS\Extbase\Tests\Functional\Persistence;
 
 use PHPUnit\Framework\Attributes\Test;
-use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Context\Context;
+use TYPO3\CMS\Core\Context\UserAspect;
 use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
+use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Http\ServerRequest;
 use TYPO3\CMS\Extbase\Configuration\ConfigurationManager;
 use TYPO3\CMS\Extbase\Configuration\ConfigurationManagerInterface;
 use TYPO3\CMS\Extbase\DomainObject\AbstractDomainObject;
 use TYPO3\CMS\Extbase\Persistence\Generic\PersistenceManager;
+use TYPO3\CMS\Frontend\Authentication\FrontendUserAuthentication;
 use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
 use TYPO3Tests\BlogExample\Domain\Model\Administrator;
 use TYPO3Tests\BlogExample\Domain\Model\Blog;
 use TYPO3Tests\BlogExample\Domain\Model\Enum\Salutation;
+use TYPO3Tests\BlogExample\Domain\Model\Info;
+use TYPO3Tests\BlogExample\Domain\Model\NoTcaEntity;
 use TYPO3Tests\BlogExample\Domain\Model\Person;
 use TYPO3Tests\BlogExample\Domain\Model\Post;
 use TYPO3Tests\BlogExample\Domain\Repository\BlogRepository;
+use TYPO3Tests\BlogExample\Domain\Repository\PersonRepository;
+use TYPO3Tests\BlogExample\Domain\Repository\PostRepository;
 
 final class AddTest extends FunctionalTestCase
 {
@@ -41,6 +48,8 @@ final class AddTest extends FunctionalTestCase
 
     private PersistenceManager $persistentManager;
     private BlogRepository $blogRepository;
+    private PersonRepository $personRepository;
+    private PostRepository $postRepository;
 
     protected function setUp(): void
     {
@@ -48,10 +57,18 @@ final class AddTest extends FunctionalTestCase
 
         $this->persistentManager = $this->get(PersistenceManager::class);
         $this->blogRepository = $this->get(BlogRepository::class);
-        $GLOBALS['BE_USER'] = new BackendUserAuthentication();
+        $this->personRepository = $this->get(PersonRepository::class);
+        $this->postRepository = $this->get(PostRepository::class);
 
         $request = (new ServerRequest())->withAttribute('applicationType', SystemEnvironmentBuilder::REQUESTTYPE_BE);
         $this->get(ConfigurationManagerInterface::class)->setRequest($request);
+        $GLOBALS['TYPO3_CONF_VARS']['SYS']['features']['extbase.enableHistoryTracking'] = true;
+    }
+
+    protected function tearDown(): void
+    {
+        $GLOBALS['TYPO3_CONF_VARS']['SYS']['features']['extbase.enableHistoryTracking'] = false;
+        parent::tearDown();
     }
 
     #[Test]
@@ -184,5 +201,94 @@ final class AddTest extends FunctionalTestCase
         $this->persistentManager->persistAll();
 
         $this->assertCSVDataSet(__DIR__ . '/Fixtures/TestResultAddObjectRespectsNewRecordStoragePid.csv');
+    }
+
+    #[Test]
+    public function addObjectDoesNotWriteHistoryEntryWhenFeatureFlagDisabled(): void
+    {
+        $GLOBALS['TYPO3_CONF_VARS']['SYS']['features']['extbase.enableHistoryTracking'] = false;
+        $newBlog = new Blog();
+        $newBlog->setTitle('A test blog');
+
+        $this->blogRepository->add($newBlog);
+        $this->persistentManager->persistAll();
+
+        $this->assertCSVDataSet(__DIR__ . '/Fixtures/TestResultAddObjectDoesNotWriteHistoryEntry.csv');
+    }
+
+    #[Test]
+    public function addObjectWritesHistoryEntry(): void
+    {
+        $newBlog = new Blog();
+        $newBlog->setTitle('A test blog');
+
+        $this->blogRepository->add($newBlog);
+        $this->persistentManager->persistAll();
+
+        $this->assertCSVDataSet(__DIR__ . '/Fixtures/TestResultAddObjectWritesHistoryEntry.csv');
+    }
+
+    #[Test]
+    public function addObjectWritesHistoryEntryWithFrontendUserContext(): void
+    {
+        $frontendUser = new FrontendUserAuthentication();
+        $frontendUser->user = ['uid' => 7];
+        $this->get(Context::class)->setAspect('frontend.user', new UserAspect($frontendUser));
+
+        $newBlog = new Blog();
+        $newBlog->setTitle('A test blog');
+
+        $this->blogRepository->add($newBlog);
+        $this->persistentManager->persistAll();
+
+        $this->assertCSVDataSet(__DIR__ . '/Fixtures/TestResultAddObjectWritesHistoryEntryFrontendUser.csv');
+    }
+
+    #[Test]
+    public function addObjectDoesNotWriteHistoryEntryWhenTrackingIsDisabled(): void
+    {
+        $person = new Person('Firstname', 'Lastname', 'test@example.com');
+
+        $this->personRepository->add($person);
+        $this->persistentManager->persistAll();
+
+        $connection = $this->get(ConnectionPool::class)->getConnectionForTable('sys_history');
+        $count = (int)$connection->count('uid', 'sys_history', []);
+        self::assertSame(0, $count);
+    }
+
+    #[Test]
+    public function addObjectDoesNotFailAndSkipsHistoryWhenTableIsNotInTcaSchema(): void
+    {
+        $entity = new NoTcaEntity();
+        $entity->setTitle('Test');
+
+        $this->persistentManager->add($entity);
+        $this->persistentManager->persistAll();
+
+        $connection = $this->get(ConnectionPool::class)->getConnectionForTable('sys_history');
+        $count = (int)$connection->count('uid', 'sys_history', []);
+        self::assertSame(0, $count);
+    }
+
+    #[Test]
+    public function addObjectStoresDomainObjectRelationAsUidNotToStringInHistory(): void
+    {
+        // Info implements __toString() and DomainObjectInterface. The tracker must
+        // check DomainObjectInterface first and store the UID, not the __toString() result.
+        $info = new Info();
+        $info->setName('ShouldNotAppearInHistory');
+        $this->persistentManager->add($info);
+        $this->persistentManager->persistAll();
+        $this->get(ConnectionPool::class)->getConnectionForTable('sys_history')->delete('sys_history', []);
+
+        $post = new Post();
+        $post->setTitle('Test Post');
+        $post->setAdditionalName($info);
+
+        $this->postRepository->add($post);
+        $this->persistentManager->persistAll();
+
+        $this->assertCSVDataSet(__DIR__ . '/Fixtures/TestResultAddObjectStoresDomainObjectRelationAsUidNotToStringInHistory.csv');
     }
 }

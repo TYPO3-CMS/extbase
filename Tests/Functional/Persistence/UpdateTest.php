@@ -18,8 +18,8 @@ declare(strict_types=1);
 namespace TYPO3\CMS\Extbase\Tests\Functional\Persistence;
 
 use PHPUnit\Framework\Attributes\Test;
-use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
+use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Http\ServerRequest;
 use TYPO3\CMS\Extbase\Configuration\ConfigurationManagerInterface;
 use TYPO3\CMS\Extbase\Persistence\Generic\PersistenceManager;
@@ -28,6 +28,7 @@ use TYPO3Tests\BlogExample\Domain\Model\Blog;
 use TYPO3Tests\BlogExample\Domain\Model\Person;
 use TYPO3Tests\BlogExample\Domain\Model\Post;
 use TYPO3Tests\BlogExample\Domain\Repository\BlogRepository;
+use TYPO3Tests\BlogExample\Domain\Repository\PersonRepository;
 use TYPO3Tests\BlogExample\Domain\Repository\PostRepository;
 
 final class UpdateTest extends FunctionalTestCase
@@ -39,6 +40,7 @@ final class UpdateTest extends FunctionalTestCase
     private PersistenceManager $persistentManager;
     private PostRepository $postRepository;
     private BlogRepository $blogRepository;
+    private PersonRepository $personRepository;
 
     protected function setUp(): void
     {
@@ -47,10 +49,17 @@ final class UpdateTest extends FunctionalTestCase
         $this->persistentManager = $this->get(PersistenceManager::class);
         $this->postRepository = $this->get(PostRepository::class);
         $this->blogRepository = $this->get(BlogRepository::class);
-        $GLOBALS['BE_USER'] = new BackendUserAuthentication();
+        $this->personRepository = $this->get(PersonRepository::class);
 
         $request = (new ServerRequest())->withAttribute('applicationType', SystemEnvironmentBuilder::REQUESTTYPE_BE);
         $this->get(ConfigurationManagerInterface::class)->setRequest($request);
+        $GLOBALS['TYPO3_CONF_VARS']['SYS']['features']['extbase.enableHistoryTracking'] = true;
+    }
+
+    protected function tearDown(): void
+    {
+        $GLOBALS['TYPO3_CONF_VARS']['SYS']['features']['extbase.enableHistoryTracking'] = false;
+        parent::tearDown();
     }
 
     #[Test]
@@ -114,5 +123,58 @@ final class UpdateTest extends FunctionalTestCase
         $this->persistentManager->persistAll();
 
         $this->assertCSVDataSet(__DIR__ . '/Fixtures/TestResultUpdateObjectSetsNullAsNullForSimpleTypes.csv');
+    }
+
+    #[Test]
+    public function updateObjectWritesHistoryEntry(): void
+    {
+        $blog = new Blog();
+        $blog->setTitle('A test blog');
+
+        $this->blogRepository->add($blog);
+        $this->persistentManager->persistAll();
+
+        $insertedBlog = $this->blogRepository->findByUid($blog->getUid());
+        $insertedBlog->setTitle('Updated title');
+        $this->blogRepository->update($insertedBlog);
+        $this->persistentManager->persistAll();
+
+        $this->assertCSVDataSet(__DIR__ . '/Fixtures/TestResultUpdateObjectWritesHistoryEntry.csv');
+    }
+
+    #[Test]
+    public function updateObjectDoesNotWriteHistoryEntryWhenTrackingIsDisabled(): void
+    {
+        $person = new Person('Firstname', 'Lastname', 'test@example.com');
+
+        $this->personRepository->add($person);
+        $this->persistentManager->persistAll();
+
+        $insertedPerson = $this->personRepository->findByUid($person->getUid());
+        $insertedPerson->setFirstname('UpdatedFirstname');
+        $this->personRepository->update($insertedPerson);
+        $this->persistentManager->persistAll();
+
+        $connection = $this->get(ConnectionPool::class)->getConnectionForTable('sys_history');
+        $count = (int)$connection->count('uid', 'sys_history', []);
+        self::assertSame(0, $count);
+    }
+
+    #[Test]
+    public function updateObjectDoesNotWriteHistoryEntryWhenFeatureFlagIsDisabled(): void
+    {
+        $GLOBALS['TYPO3_CONF_VARS']['SYS']['features']['extbase.enableHistoryTracking'] = false;
+        $blog = new Blog();
+        $blog->setTitle('A test blog');
+
+        $this->blogRepository->add($blog);
+        $this->persistentManager->persistAll();
+
+        $insertedBlog = $this->blogRepository->findByUid($blog->getUid());
+        $insertedBlog->setTitle('Updated title');
+        $this->blogRepository->update($insertedBlog);
+        $this->persistentManager->persistAll();
+
+        $this->assertCSVDataSet(__DIR__ . '/Fixtures/TestResultUpdateObjectDoesNotWriteHistoryEntry.csv');
     }
 }
