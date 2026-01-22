@@ -36,7 +36,9 @@ class LocalizationUtility
      *
      * @param string $key The key from the LOCAL_LANG array for which to return the value.
      * @param string|null $extensionName The name of the extension or domain name (such as "myextension.messages")
-     * @param array|null $arguments The arguments of the label, being passed over to sprintf
+     * @param array|null $arguments The arguments for the label. For sprintf-style labels (e.g., "Downloaded %d times"),
+     *                              use positional arguments [42]. For ICU MessageFormat labels
+     *                              (e.g., "{count, plural, one {# file} other {# files}}"), use named arguments ['count' => 42].
      * @param Locale|string|null $languageKey The language key or null for using the current language from the system
      * @return string|null The value from LOCAL_LANG or null if no translation was found.
      */
