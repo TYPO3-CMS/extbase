@@ -127,6 +127,9 @@ class Backend implements BackendInterface
      * Returns the (internal) identifier for the object, if it is known to the
      * backend. Otherwise NULL is returned.
      *
+     * The returned identifier is the base identifier (UID or UID_localizedUID)
+     * without the language content identifier suffix, suitable for use as an external identifier.
+     *
      * @param object $object
      * @return string|null The identifier for the object if it is known, or NULL
      */
@@ -136,7 +139,16 @@ class Backend implements BackendInterface
             $object = $object->_loadRealInstance();
         }
 
-        return is_object($object) ? $this->session->getIdentifierByObject($object) : null;
+        if (!is_object($object)) {
+            return null;
+        }
+
+        $identifier = $this->session->getIdentifierByObject($object);
+        if ($identifier === null) {
+            return null;
+        }
+
+        return $this->session->getBaseIdentifier($identifier);
     }
 
     /**
@@ -149,12 +161,7 @@ class Backend implements BackendInterface
      */
     public function getObjectByIdentifier($identifier, $className)
     {
-        if ($this->session->hasIdentifier($identifier, $className)) {
-            return $this->session->getObjectByIdentifier($identifier, $className);
-        }
         $query = $this->persistenceManager->createQueryForType($className);
-        $query->getQuerySettings()->setRespectStoragePage(false);
-        $query->getQuerySettings()->setRespectSysLanguage(false);
         // This allows to fetch IDs for languages for default language AND language IDs
         // This is especially important when using the PropertyMapper of the Extbase MVC part to get
         // an object of the translated version of the incoming ID of a record.
@@ -165,7 +172,16 @@ class Backend implements BackendInterface
             $languageAspect->getOverlayType() === LanguageAspect::OVERLAYS_OFF ? LanguageAspect::OVERLAYS_ON_WITH_FLOATING : $languageAspect->getOverlayType(),
             $languageAspect->getFallbackChain()
         );
+
+        // Build language-aware session identifier
+        $sessionIdentifier = $this->session->buildIdentifier($identifier, $languageAspect);
+        if ($this->session->hasIdentifier($sessionIdentifier, $className)) {
+            return $this->session->getObjectByIdentifier($sessionIdentifier, $className);
+        }
+
         $query->getQuerySettings()->setLanguageAspect($languageAspect);
+        $query->getQuerySettings()->setRespectStoragePage(false);
+        $query->getQuerySettings()->setRespectSysLanguage(false);
         return $query->matching($query->equals('uid', $identifier))->execute()->getFirst();
     }
 
@@ -574,7 +590,7 @@ class Backend implements BackendInterface
 
         $uid = $this->storageBackend->addRow($dataMap->tableName, $row);
         $localizedUid = $object->_getProperty(AbstractDomainObject::PROPERTY_LOCALIZED_UID);
-        $identifier = $uid . ($localizedUid ? '_' . $localizedUid : '');
+        $identifier = $this->session->buildIdentifier(['uid' => $uid, '_LOCALIZED_UID' => $localizedUid]);
         $object->_setProperty(AbstractDomainObject::PROPERTY_UID, $uid);
         $object->setPid((int)$row['pid']);
         if ($uid >= 1) {

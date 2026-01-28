@@ -17,6 +17,7 @@ declare(strict_types=1);
 
 namespace TYPO3\CMS\Extbase\Persistence\Generic;
 
+use TYPO3\CMS\Core\Context\LanguageAspect;
 use TYPO3\CMS\Extbase\Persistence\ObjectStorage;
 
 /**
@@ -160,5 +161,55 @@ class Session
     protected function getClassIdentifier(string $className): string
     {
         return strtolower($className);
+    }
+
+    /**
+     * Build a language-aware identifier for the identity map by combining
+     * a base identifier with a language content identifier.
+     */
+    public function buildIdentifier(string|array $baseIdentifier, ?LanguageAspect $languageAspect = null): string
+    {
+        if (is_array($baseIdentifier)) {
+            $identifier = (string)$baseIdentifier['uid'];
+            if (isset($baseIdentifier['_LOCALIZED_UID'])) {
+                $identifier .= '_' . $baseIdentifier['_LOCALIZED_UID'];
+            }
+            $baseIdentifier = $identifier;
+        }
+        // Use default language context for newly inserted objects
+        $languageAspect ??= new LanguageAspect(0, 0, LanguageAspect::OVERLAYS_ON_WITH_FLOATING, []);
+        return $baseIdentifier . '@' . $this->getContentIdentifier($languageAspect);
+    }
+
+    /**
+     * Build a unique identifier representing the content-fetching configuration
+     * of the given LanguageAspect.
+     *
+     * This includes contentId, overlayType, and fallbackChain — everything
+     * that affects which record overlay is returned. The language ID is
+     * intentionally excluded because it only affects menus/links, not content.
+     *
+     * @internal
+     */
+    protected function getContentIdentifier(LanguageAspect $languageAspect): string
+    {
+        return sprintf(
+            '%d-%s-%s',
+            $languageAspect->getContentId(),
+            $languageAspect->getOverlayType(),
+            implode(',', $languageAspect->getFallbackChain())
+        );
+    }
+
+    /**
+     * Extract the base identifier (before '@') from a full identity map identifier.
+     */
+    public function getBaseIdentifier(string $identifier): string
+    {
+        $pos = strpos($identifier, '@');
+        if ($pos !== false) {
+            return substr($identifier, 0, $pos);
+        }
+        return $identifier;
     }
 }

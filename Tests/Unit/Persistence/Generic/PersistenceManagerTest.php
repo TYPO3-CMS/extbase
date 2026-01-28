@@ -91,60 +91,31 @@ final class PersistenceManagerTest extends UnitTestCase
     }
 
     #[Test]
-    public function getObjectByIdentifierReturnsObjectFromSessionIfAvailable(): void
+    public function getObjectByIdentifierDelegatesToBackend(): void
     {
         $fakeUuid = 'fakeUuid';
         $object = new \stdClass();
 
-        $mockSession = $this->createMock(Session::class);
-        $mockSession->expects($this->once())->method('hasIdentifier')->with($fakeUuid, \stdClass::class)->willReturn(true);
-        $mockSession->expects($this->once())->method('getObjectByIdentifier')->with($fakeUuid)->willReturn($object);
-
-        $manager = new PersistenceManager(
-            $this->createMock(QueryFactoryInterface::class),
-            $this->createMock(BackendInterface::class),
-            $mockSession
-        );
-
-        self::assertEquals($manager->getObjectByIdentifier($fakeUuid, $object::class), $object);
-    }
-
-    #[Test]
-    public function getObjectByIdentifierReturnsObjectFromPersistenceIfAvailable(): void
-    {
-        $fakeUuid = '42';
-        $object = new \stdClass();
-        $fakeEntityType = get_class($object);
-
-        $mockSession = $this->createMock(Session::class);
-        $mockSession->expects($this->once())->method('hasIdentifier')->with($fakeUuid)->willReturn(false);
-
         $mockBackend = $this->createMock(BackendInterface::class);
         $mockBackend->expects($this->once())->method('getObjectByIdentifier')->with(
             $fakeUuid,
-            $fakeEntityType
+            \stdClass::class
         )->willReturn($object);
 
         $manager = new PersistenceManager(
             $this->createMock(QueryFactoryInterface::class),
             $mockBackend,
-            $mockSession
+            $this->createMock(Session::class)
         );
 
-        self::assertEquals($manager->getObjectByIdentifier($fakeUuid, $fakeEntityType), $object);
+        self::assertSame($object, $manager->getObjectByIdentifier($fakeUuid, $object::class));
     }
 
     #[Test]
-    public function getObjectByIdentifierReturnsNullForUnknownObject(): void
+    public function getObjectByIdentifierReturnsNullWhenBackendReturnsNull(): void
     {
         $fakeUuid = '42';
         $fakeEntityType = 'foobar';
-
-        $mockSession = $this->createMock(Session::class);
-        $mockSession->expects($this->once())->method('hasIdentifier')->with(
-            $fakeUuid,
-            $fakeEntityType
-        )->willReturn(false);
 
         $mockBackend = $this->createMock(BackendInterface::class);
         $mockBackend->expects($this->once())->method('getObjectByIdentifier')->with(
@@ -155,7 +126,7 @@ final class PersistenceManagerTest extends UnitTestCase
         $manager = new PersistenceManager(
             $this->createMock(QueryFactoryInterface::class),
             $mockBackend,
-            $mockSession
+            $this->createMock(Session::class)
         );
 
         self::assertNull($manager->getObjectByIdentifier($fakeUuid, $fakeEntityType));

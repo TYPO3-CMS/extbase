@@ -145,9 +145,7 @@ class DataMapper
      */
     protected function mapSingleRow($className, array $row)
     {
-        // @todo: this also needs to contain the query's languageAspect with its configuration
-        // which should be changed along with https://review.typo3.org/c/Packages/TYPO3.CMS/+/75093
-        $identifier = $row['uid'] . (isset($row['_LOCALIZED_UID']) ? '_' . $row['_LOCALIZED_UID'] : '');
+        $identifier = $this->buildIdentifier($row);
         if ($this->persistenceSession->hasIdentifier($identifier, $className)) {
             $object = $this->persistenceSession->getObjectByIdentifier($identifier, $className);
         } else {
@@ -160,6 +158,32 @@ class DataMapper
             $this->persistenceSession->registerReconstitutedEntity($object);
         }
         return $object;
+    }
+
+    /**
+     * Build a language-aware identifier for the identity map.
+     *
+     * The identifier includes the UID, localized UID (if present), and the
+     * language content identifier to ensure objects loaded with different
+     * language configurations are cached separately.
+     *
+     * @param array $row A single array with field_name => value pairs
+     * @return non-empty-string The identifier for the identity map
+     */
+    protected function buildIdentifier(array $row): string
+    {
+        return $this->persistenceSession->buildIdentifier($row, $this->getEffectiveLanguageAspect());
+    }
+
+    /**
+     * Get the effective LanguageAspect for the current mapping context.
+     *
+     * Returns the LanguageAspect from the current query if available,
+     * otherwise returns a default LanguageAspect for default language.
+     */
+    protected function getEffectiveLanguageAspect(): LanguageAspect
+    {
+        return $this->query?->getQuerySettings()->getLanguageAspect() ?? new LanguageAspect();
     }
 
     /**
@@ -745,8 +769,9 @@ class DataMapper
             );
         }
 
-        if ($this->persistenceSession->hasIdentifier((string)$fieldValue, $className)) {
-            return $this->persistenceSession->getObjectByIdentifier((string)$fieldValue, $className);
+        $identifier = $this->persistenceSession->buildIdentifier((string)$fieldValue, $this->getEffectiveLanguageAspect());
+        if ($this->persistenceSession->hasIdentifier($identifier, $className)) {
+            return $this->persistenceSession->getObjectByIdentifier($identifier, $className);
         }
 
         $result = $this->fetchRelated($parentObject, $propertyName, $fieldValue);

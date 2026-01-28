@@ -107,9 +107,7 @@ class PersistenceManager implements PersistenceManagerInterface, SingletonInterf
         if (isset($this->newObjects[$identifier])) {
             return $this->newObjects[$identifier];
         }
-        if ($this->persistenceSession->hasIdentifier((string)$identifier, $objectType)) {
-            return $this->persistenceSession->getObjectByIdentifier((string)$identifier, $objectType);
-        }
+        // Delegate to backend which handles language-aware session lookup
         return $this->backend->getObjectByIdentifier((string)$identifier, $objectType);
     }
 
