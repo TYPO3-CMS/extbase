@@ -37,6 +37,7 @@ use TYPO3\CMS\Core\View\ViewFactoryInterface;
 use TYPO3\CMS\Core\View\ViewInterface;
 use TYPO3\CMS\Extbase\Configuration\ConfigurationManagerInterface;
 use TYPO3\CMS\Extbase\Event\Mvc\BeforeActionCallEvent;
+use TYPO3\CMS\Extbase\Event\Mvc\BeforeActionRateLimitResponseEvent;
 use TYPO3\CMS\Extbase\Http\ForwardResponse;
 use TYPO3\CMS\Extbase\Mvc\Controller\Exception\RequiredArgumentMissingException;
 use TYPO3\CMS\Extbase\Mvc\Exception\InvalidArgumentNameException;
@@ -53,6 +54,8 @@ use TYPO3\CMS\Extbase\Reflection\ReflectionService;
 use TYPO3\CMS\Extbase\Security\HashScope;
 use TYPO3\CMS\Extbase\Service\ExtensionService;
 use TYPO3\CMS\Extbase\Service\FileHandlingService;
+use TYPO3\CMS\Extbase\Service\RateLimitService;
+use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 use TYPO3\CMS\Extbase\Validation\Validator\ConjunctionValidator;
 use TYPO3\CMS\Extbase\Validation\ValidatorResolver;
 use TYPO3\CMS\Fluid\View\FluidViewAdapter;
@@ -102,6 +105,7 @@ abstract class ActionController implements ControllerInterface
     protected FileHandlingService $fileHandlingService;
     protected RequestInterface $request;
     protected UriBuilder $uriBuilder;
+    protected RateLimitService $rateLimitService;
 
     /**
      * Contains the settings of the current extension
@@ -199,6 +203,11 @@ abstract class ActionController implements ControllerInterface
     public function injectFileHandlingService(FileHandlingService $fileHandlingService): void
     {
         $this->fileHandlingService = $fileHandlingService;
+    }
+
+    public function injectRateLimitService(RateLimitService $rateLimitService): void
+    {
+        $this->rateLimitService = $rateLimitService;
     }
 
     /**
@@ -449,6 +458,10 @@ abstract class ActionController implements ControllerInterface
                 $this->fileHandlingService->applyDeletionsToArgument($argument);
                 $this->fileHandlingService->mapUploadedFilesToArgument($argument);
                 $preparedArguments[] = $argument->getValue();
+            }
+
+            if (($rateLimitResponse = $this->handleRateLimit($request)) !== null) {
+                return $rateLimitResponse;
             }
 
             $this->eventDispatcher->dispatch(new BeforeActionCallEvent(static::class, $this->actionMethodName, $preparedArguments, $this->request));
@@ -896,5 +909,43 @@ abstract class ActionController implements ControllerInterface
         return $this->responseFactory->createResponse()
             ->withHeader('Content-Type', 'application/json; charset=utf-8')
             ->withBody($this->streamFactory->createStream(($json ?? $this->view->render())));
+    }
+
+    /**
+     * Handles rate-limiting for the given action request. Checks if the current request exceeds
+     * a possible defined rate limit for the action method and generates an appropriate response
+     * if the limit is reached.
+     *
+     * @return ResponseInterface|null The rate-limited response if the limit is exceeded, or null if no rate-limiting applies.
+     */
+    protected function handleRateLimit(RequestInterface $request): ?ResponseInterface
+    {
+        $rateLimit = $this->reflectionService
+            ->getClassSchema(static::class)
+            ->getMethod($this->actionMethodName)
+            ->getRateLimit();
+
+        if (!$rateLimit
+            || !$this->rateLimitService->isRequestRateLimited($request, static::class . '::' . $this->actionMethodName, $rateLimit)
+        ) {
+            return null;
+        }
+
+        $customMessage = null;
+        if ($rateLimit->message !== '') {
+            $customMessage = LocalizationUtility::translate($rateLimit->message, $this->request->getControllerExtensionName());
+        }
+        $message = $customMessage ?? LocalizationUtility::translate('ratelimit.action.defaultmessage', 'extbase');
+
+        $response = $this->responseFactory->createResponse()
+            ->withHeader('Content-Type', 'text/html; charset=utf-8')
+            ->withStatus(429)
+            ->withBody($this->streamFactory->createStream(($message)));
+
+        $event = $this->eventDispatcher->dispatch(
+            new BeforeActionRateLimitResponseEvent($request, static::class, $this->actionMethodName, $rateLimit, $response)
+        );
+
+        return $event->getResponse();
     }
 }

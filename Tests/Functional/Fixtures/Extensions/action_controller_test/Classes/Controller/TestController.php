@@ -130,4 +130,21 @@ class TestController extends ActionController
     ): ResponseInterface {
         return $this->htmlResponse('success:' . $model->getValue());
     }
+
+    public function initializeTestRateLimitAction(): void
+    {
+        $propertyMappingConfiguration = $this->arguments['model']->getPropertyMappingConfiguration();
+        $propertyMappingConfiguration->allowAllProperties();
+        $propertyMappingConfiguration->setTypeConverterOption(
+            PersistentObjectConverter::class,
+            PersistentObjectConverter::CONFIGURATION_CREATION_ALLOWED,
+            true
+        );
+    }
+
+    #[Extbase\RateLimit(limit: 2, interval: '10 minutes')]
+    public function testRateLimitAction(Model $model): ResponseInterface
+    {
+        return $this->htmlResponse('success:' . $model->getValue());
+    }
 }

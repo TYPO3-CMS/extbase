@@ -117,6 +117,9 @@
       <trans-unit id="class_configuration">
         <source>Extbase: Class Configuration</source>
       </trans-unit>
+      <trans-unit id="ratelimit.action.defaultmessage">
+        <source>Too many requests. Please try again later.</source>
+      </trans-unit>
     </body>
   </file>
 </xliff>

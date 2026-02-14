@@ -19,7 +19,9 @@ namespace TYPO3\CMS\Extbase\Tests\Functional\Mvc\Controller;
 
 use PHPUnit\Framework\Attributes\IgnoreDeprecations;
 use PHPUnit\Framework\Attributes\Test;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use TYPO3\CMS\Core\Cache\CacheManager;
 use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
 use TYPO3\CMS\Core\Crypto\HashAlgo;
 use TYPO3\CMS\Core\Crypto\HashService;
@@ -30,6 +32,7 @@ use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\CMS\Core\Type\ContextualFeedbackSeverity;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Extbase\Configuration\ConfigurationManagerInterface;
+use TYPO3\CMS\Extbase\Event\Mvc\BeforeActionRateLimitResponseEvent;
 use TYPO3\CMS\Extbase\Http\ForwardResponse;
 use TYPO3\CMS\Extbase\Mvc\Controller\Arguments;
 use TYPO3\CMS\Extbase\Mvc\Exception\InvalidArgumentTypeException;
@@ -545,6 +548,132 @@ final class ActionControllerTest extends FunctionalTestCase
         self::assertNotInstanceOf(ForwardResponse::class, $response);
         self::assertSame(200, $response->getStatusCode());
         self::assertSame('success:valid value', (string)$response->getBody());
+    }
+
+    #[Test]
+    public function configuredRateLimitIsAppliedToActionWhenValidationPassed(): void
+    {
+        // We must ensure to flush system caches, because previous tests could have resulted in a rate limit
+        $cacheManager = $this->get(CacheManager::class);
+        $cacheManager->flushCaches();
+
+        // Init ConfigurationManagerInterface stateful singleton, usually done by extbase bootstrap
+        $this->get(ConfigurationManagerInterface::class)->setRequest(
+            (new ServerRequest())->withAttribute('applicationType', SystemEnvironmentBuilder::REQUESTTYPE_BE)
+        );
+
+        $serverRequest = (new ServerRequest())->withAttribute('extbase', new ExtbaseRequestParameters());
+        $request = (new Request($serverRequest))
+            ->withControllerExtensionName('ActionControllerTest')
+            ->withControllerName('Test')
+            ->withControllerActionName('testRateLimit')
+            ->withPluginName('Pi1')
+            ->withArgument('model', ['value' => 'valid value']);
+
+        $subject = $this->get(TestController::class);
+
+        $response = $subject->processRequest($request);
+        self::assertSame(200, $response->getStatusCode(), 'First request should be allowed');
+        $response = $subject->processRequest($request);
+        self::assertSame(200, $response->getStatusCode(), 'Second request should be allowed');
+        $response = $subject->processRequest($request);
+        self::assertSame(429, $response->getStatusCode(), 'Third request should be rate limited');
+
+        // Verify that the default translated message is returned
+        self::assertStringContainsString('Too many requests. Please try again later.', (string)$response->getBody());
+    }
+
+    #[Test]
+    public function beforeActionRateLimitResponseEventIsDispatchedWhenRateLimitIsReached(): void
+    {
+        // We must ensure to flush system caches, because previous tests could have resulted in a rate limit
+        $cacheManager = $this->get(CacheManager::class);
+        $cacheManager->flushCaches();
+
+        // Init ConfigurationManagerInterface stateful singleton, usually done by extbase bootstrap
+        $this->get(ConfigurationManagerInterface::class)->setRequest(
+            (new ServerRequest())->withAttribute('applicationType', SystemEnvironmentBuilder::REQUESTTYPE_BE)
+        );
+
+        $eventDispatcher = new class () implements EventDispatcherInterface {
+            public function dispatch(object $event): object
+            {
+                if ($event instanceof BeforeActionRateLimitResponseEvent) {
+                    $response = $event->getResponse();
+                    $response = $response->withStatus(400);
+                    $event->setResponse($response);
+                }
+
+                return $event;
+            }
+        };
+
+        $serverRequest = (new ServerRequest())->withAttribute('extbase', new ExtbaseRequestParameters());
+        $request = (new Request($serverRequest))
+            ->withControllerExtensionName('ActionControllerTest')
+            ->withControllerName('Test')
+            ->withControllerActionName('testRateLimit')
+            ->withPluginName('Pi1')
+            ->withArgument('model', ['value' => 'valid value']);
+
+        $subject = $this->get(TestController::class);
+        $subject->injectEventDispatcher($eventDispatcher);
+
+        $response = $subject->processRequest($request);
+        self::assertSame(200, $response->getStatusCode(), 'First request should be allowed');
+        $response = $subject->processRequest($request);
+        self::assertSame(200, $response->getStatusCode(), 'Second request should be allowed');
+        $response = $subject->processRequest($request);
+        self::assertSame(400, $response->getStatusCode(), 'Third request should be rate limited with status code 400 from event listener');
+
+        // Verify that the default translated message is returned
+        self::assertStringContainsString('Too many requests. Please try again later.', (string)$response->getBody());
+    }
+
+    #[Test]
+    public function configuredRateLimitIsNotAppliedToActionWhenValidationFailed(): void
+    {
+        // We must ensure to flush system caches, because previous tests could have resulted in a rate limit
+        $cacheManager = $this->get(CacheManager::class);
+        $cacheManager->flushCaches();
+
+        // Init ConfigurationManagerInterface stateful singleton, usually done by extbase bootstrap
+        $this->get(ConfigurationManagerInterface::class)->setRequest(
+            (new ServerRequest())->withAttribute('applicationType', SystemEnvironmentBuilder::REQUESTTYPE_BE)
+        );
+
+        // Create a referring request to ensure ForwardResponse is used
+        $referringRequest = [
+            '@extension' => 'ActionControllerTest',
+            '@controller' => 'Test',
+            '@action' => 'qux',
+        ];
+        $referringRequestSerialized = (new HashService())->appendHmac(
+            json_encode($referringRequest),
+            HashScope::ReferringRequest->prefix(),
+            HashAlgo::SHA3_256
+        );
+
+        $serverRequest = (new ServerRequest())->withAttribute('extbase', new ExtbaseRequestParameters());
+        $request = (new Request($serverRequest))
+            ->withControllerExtensionName('ActionControllerTest')
+            ->withControllerName('Test')
+            ->withControllerActionName('testRateLimit')
+            ->withPluginName('Pi1')
+            ->withArgument('model', ['value' => '']) // Empty value will fail NotEmpty validation
+            ->withArgument('__referrer', ['@request' => $referringRequestSerialized]);
+
+        $subject = $this->get(TestController::class);
+
+        $response = $subject->processRequest($request);
+        self::assertSame(400, $response->getStatusCode());
+        self::assertInstanceOf(ForwardResponse::class, $response);
+        $response = $subject->processRequest($request);
+        self::assertSame(400, $response->getStatusCode());
+        self::assertInstanceOf(ForwardResponse::class, $response);
+        $response = $subject->processRequest($request);
+        self::assertSame(400, $response->getStatusCode());
+        self::assertInstanceOf(ForwardResponse::class, $response);
     }
 
     /**
