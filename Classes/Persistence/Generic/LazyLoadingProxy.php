@@ -79,10 +79,7 @@ class LazyLoadingProxy implements \Iterator, LoadingStrategyInterface
         // this check safeguards against a proxy being activated multiple times
         // usually that does not happen, but if the proxy is held from outside
         // its parent ... the result would be weird.
-        if ($this->parentObject instanceof DomainObjectInterface
-            && $this->parentObject->_getProperty($this->propertyName) instanceof LazyLoadingProxy
-            && $this->dataMapper
-        ) {
+        if ($this->parentObject->_getProperty($this->propertyName) instanceof LazyLoadingProxy && $this->dataMapper) {
             $objects = $this->dataMapper->fetchRelated($this->parentObject, $this->propertyName, $this->fieldValue, false);
             $propertyValue = $this->dataMapper->mapResultToPropertyValue($this->parentObject, $this->propertyName, $objects);
             $this->parentObject->_setProperty($this->propertyName, $propertyValue);

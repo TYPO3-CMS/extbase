@@ -277,8 +277,7 @@ final class ObjectConverterTest extends FunctionalTestCase
     public function getTypeOfChildPropertyThrowsInvalidTargetExceptionIfPropertyTypeCannotBeDerivedFromExistingConstructorArgument(): void
     {
         $class = new class () {
-            // @phpstan-ignore-next-line
-            public function __construct($name = null) {}
+            public function __construct($name = null) {} // @phpstan-ignore constructor.unusedParameter (intentionally untyped to test type resolution failure)
         };
 
         $className = get_class($class);
@@ -329,8 +328,7 @@ final class ObjectConverterTest extends FunctionalTestCase
         $this->expectExceptionMessage('Exception while property mapping at property path "": Property "name" having a value of type "string" could not be set in target object of type "');
 
         $class = new class () {
-            // @phpstan-ignore-next-line
-            private string $name;
+            private string $name; // @phpstan-ignore property.unused (intentionally inaccessible property to test property mapping failure)
         };
 
         $propertyMapper = $this->get(PropertyMapper::class);

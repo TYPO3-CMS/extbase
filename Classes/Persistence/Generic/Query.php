@@ -104,12 +104,7 @@ class Query implements QueryInterface
      */
     protected $offset;
 
-    /**
-     * The query settings.
-     *
-     * @var QuerySettingsInterface
-     */
-    protected $querySettings;
+    protected QuerySettingsInterface $querySettings;
 
     /**
      * @var QueryInterface|null
@@ -156,25 +151,14 @@ class Query implements QueryInterface
     /**
      * Sets the Query Settings. These Query settings must match the settings expected by
      * the specific Storage Backend.
-     *
-     * @param QuerySettingsInterface $querySettings The Query Settings
      */
     public function setQuerySettings(QuerySettingsInterface $querySettings)
     {
         $this->querySettings = $querySettings;
     }
 
-    /**
-     * Returns the Query Settings.
-     *
-     * @throws Exception
-     * @return QuerySettingsInterface $querySettings The Query Settings
-     */
-    public function getQuerySettings()
+    public function getQuerySettings(): QuerySettingsInterface
     {
-        if (!$this->querySettings instanceof QuerySettingsInterface) {
-            throw new Exception('Tried to get the query settings without setting them before.', 1248689115);
-        }
         return $this->querySettings;
     }
 

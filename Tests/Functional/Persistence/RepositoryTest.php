@@ -74,8 +74,7 @@ final class RepositoryTest extends FunctionalTestCase
         $this->expectException(IllegalObjectTypeException::class);
         $this->expectExceptionCode(1248363335);
         $subject = $this->get(PostRepository::class);
-        /** @phpstan-ignore-next-line */
-        $subject->add(new \stdClass());
+        $subject->add(new \stdClass()); // @phpstan-ignore argument.type (intentionally passing wrong type to test type checking)
     }
 
     #[Test]
@@ -84,8 +83,7 @@ final class RepositoryTest extends FunctionalTestCase
         $this->expectException(IllegalObjectTypeException::class);
         $this->expectExceptionCode(1248363336);
         $subject = $this->get(PostRepository::class);
-        /** @phpstan-ignore-next-line */
-        $subject->remove(new \stdClass());
+        $subject->remove(new \stdClass()); // @phpstan-ignore argument.type (intentionally passing wrong type to test type checking)
     }
 
     #[Test]
@@ -94,8 +92,7 @@ final class RepositoryTest extends FunctionalTestCase
         $this->expectException(IllegalObjectTypeException::class);
         $this->expectExceptionCode(1249479625);
         $subject = $this->get(PostRepository::class);
-        /** @phpstan-ignore-next-line */
-        $subject->update(new \stdClass());
+        $subject->update(new \stdClass()); // @phpstan-ignore argument.type (intentionally passing wrong type to test type checking)
     }
 
     #[Test]

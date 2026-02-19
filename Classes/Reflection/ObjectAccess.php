@@ -50,9 +50,6 @@ class ObjectAccess
      *
      * @param object|array $subject Object or array to get the property from
      * @param string $propertyName name of the property to retrieve
-     *
-     * @throws \InvalidArgumentException in case $subject was not an object or $propertyName was not a string
-     * @throws Exception\PropertyNotAccessibleException
      * @return mixed Value of the property
      */
     public static function getProperty(object|array $subject, string $propertyName): mixed
@@ -74,7 +71,6 @@ class ObjectAccess
      * @param object|array $subject Object or array to get the property from
      * @param string $propertyName name of the property to retrieve
      *
-     * @throws Exception\PropertyNotAccessibleException
      * @return mixed Value of the property
      * @internal
      */
@@ -391,7 +387,7 @@ class ObjectAccess
 
     private static function convertToArrayPropertyPath(PropertyPath $propertyPath): PropertyPath
     {
-        $segments = array_map(static fn(string $segment): string => static::wrap($segment), $propertyPath->getElements());
+        $segments = array_map(static fn(string $segment): string => self::wrap($segment), $propertyPath->getElements());
 
         return new PropertyPath(implode('.', $segments));
     }

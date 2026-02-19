@@ -188,8 +188,7 @@ final class BackendTest extends FunctionalTestCase
     public function getIdentifierByObjectWithStringInsteadOfObjectReturnsNull(): void
     {
         $subject = $this->get(Backend::class);
-        /** @phpstan-ignore-next-line */
-        self::assertNull($subject->getIdentifierByObject('thisIsAString'));
+        self::assertNull($subject->getIdentifierByObject('thisIsAString')); // @phpstan-ignore argument.type (intentionally passing string to test error handling)
     }
 
     #[Test]

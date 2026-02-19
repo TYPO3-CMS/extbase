@@ -306,7 +306,7 @@ class Typo3DbQueryParser
             $columnName = $this->dataMapper->convertPropertyNameToColumnName($propertyName, $className);
             $dataMap = $this->dataMapper->getDataMap($className);
             $columnMap = $dataMap->getColumnMap($propertyName);
-            $typeOfRelation = $columnMap instanceof ColumnMap ? $columnMap->typeOfRelation : null;
+            $typeOfRelation = $columnMap->typeOfRelation ?? null;
             if ($typeOfRelation === Relation::HAS_AND_BELONGS_TO_MANY) {
                 /** @var ColumnMap $columnMap */
                 $relationTableName = (string)$columnMap->relationTableName;
@@ -483,10 +483,7 @@ class Typo3DbQueryParser
         ParameterType|Type|ArrayParameterType|null $forceType = null,
         ?ColumnMap $columnMap = null,
     ): string {
-        if ($value instanceof DomainObjectInterface
-            && $value->_hasProperty(AbstractDomainObject::PROPERTY_LOCALIZED_UID)
-            && $value->_getProperty(AbstractDomainObject::PROPERTY_LOCALIZED_UID) > 0
-        ) {
+        if ($value instanceof DomainObjectInterface && $value->_getProperty(AbstractDomainObject::PROPERTY_LOCALIZED_UID) > 0) {
             $plainValue = (int)$value->_getProperty(AbstractDomainObject::PROPERTY_LOCALIZED_UID);
         } else {
             $plainValue = $this->dataMapper->getPlainValue($value, $columnMap);

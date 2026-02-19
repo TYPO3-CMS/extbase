@@ -46,7 +46,6 @@ class PropertyMapper implements SingletonInterface
      * @param mixed $source the source data to map. MUST be a simple type, NO object allowed!
      * @param string $targetType The type of the target; can be either a class name or a simple type.
      * @param PropertyMappingConfigurationInterface|null $configuration Configuration for the property mapping. If NULL, the PropertyMappingConfigurationBuilder will create a default configuration.
-     * @throws Exception
      * @return mixed an instance of $targetType
      */
     public function convert(mixed $source, string $targetType, ?PropertyMappingConfigurationInterface $configuration = null): mixed
@@ -91,14 +90,6 @@ class PropertyMapper implements SingletonInterface
      * @param PropertyMappingConfigurationInterface $configuration Configuration for the property mapping.
      * @param array $currentPropertyPath The property path currently being mapped; used for knowing the context in case an exception is thrown.
      * @return mixed an instance of $targetType
-     *
-     * @throws Exception\TypeConverterException
-     * @throws Exception\InvalidPropertyMappingConfigurationException
-     * @throws Exception\DuplicateTypeConverterException
-     * @throws Exception\InvalidPropertyMappingConfigurationException
-     * @throws Exception\InvalidSourceException
-     * @throws Exception\InvalidTargetException
-     * @throws Exception\TypeConverterException
      *
      * @internal since TYPO3 v12.0
      */

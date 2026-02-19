@@ -59,8 +59,6 @@ class MvcPropertyMappingConfigurationService implements SingletonInterface
 
     /**
      * Generate a request hash for a list of form fields
-     *
-     * @throws InvalidArgumentForHashGenerationException
      */
     public function generateTrustedPropertiesToken(array $formFieldNames, string $fieldNamePrefix = ''): string
     {

@@ -245,7 +245,7 @@ class DataMapper
                 continue;
             }
             $columnMap = $dataMap->getColumnMap($propertyName);
-            if (!$columnMap instanceof ColumnMap) {
+            if ($columnMap === null) {
                 continue;
             }
             if (!isset($row[$columnMap->columnName])) {
@@ -735,13 +735,10 @@ class DataMapper
      * the correct type and identity (fieldValue), this function returns that object.
      * Otherwise, it proceeds with mapResultToPropertyValue().
      *
-     * @param DomainObjectInterface $parentObject
-     * @param string $propertyName
      * @param mixed $fieldValue the raw field value
-     * @return mixed
      * @see mapResultToPropertyValue()
      */
-    protected function mapObjectToClassProperty(DomainObjectInterface $parentObject, $propertyName, $fieldValue)
+    protected function mapObjectToClassProperty(DomainObjectInterface $parentObject, string $propertyName, $fieldValue)
     {
         if ($this->propertyMapsByForeignKey($parentObject, $propertyName)) {
             $result = $this->fetchRelated($parentObject, $propertyName, $fieldValue);
@@ -762,7 +759,7 @@ class DataMapper
         }
 
         $className = $primaryType->getClassName();
-        if (!is_string($className)) {
+        if ($className === null) {
             throw new \LogicException(
                 sprintf('Evaluated type of class property %s::%s is not a class name. Check the type declaration of the property to use a valid class name.', $parentObject::class, $propertyName),
                 1660217846
@@ -857,9 +854,8 @@ class DataMapper
      *
      * @param string $className The class name you want to fetch the Data Map for
      * @throws Persistence\Generic\Exception
-     * @return DataMap The data map
      */
-    public function getDataMap($className)
+    public function getDataMap($className): DataMap
     {
         if (!is_string($className) || $className === '') {
             throw new Exception('No class name was given to retrieve the Data Map for.', 1251315965);
@@ -889,11 +885,9 @@ class DataMapper
     {
         if (!empty($className)) {
             $dataMap = $this->getDataMap($className);
-            if ($dataMap !== null) {
-                $columnMap = $dataMap->getColumnMap($propertyName);
-                if ($columnMap !== null) {
-                    return $columnMap->columnName;
-                }
+            $columnMap = $dataMap->getColumnMap($propertyName);
+            if ($columnMap !== null) {
+                return $columnMap->columnName;
             }
         }
         return GeneralUtility::camelCaseToLowerCaseUnderscored($propertyName);
@@ -935,13 +929,11 @@ class DataMapper
 
     /**
      * Returns a plain value, i.e. objects are flattened out if possible.
-     * Multi value objects or arrays will be converted to a comma-separated list for use in IN SQL queries.
+     * Multi value objects or arrays will be converted to a comma-separated list for use in "IN" SQL queries.
+     * Caution: We do not return "null" values yet, if so, we need to adapt all places to handle null (see git history of this line)
      *
      * @param mixed $input The value that will be converted.
      * @param ColumnMap|null $columnMap Optional column map for retrieving the date storage format.
-     * @throws \InvalidArgumentException
-     * @throws UnexpectedTypeException
-     * @return int|string
      */
     public function getPlainValue(mixed $input, ?ColumnMap $columnMap = null): int|string
     {
