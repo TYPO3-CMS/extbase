@@ -28,6 +28,7 @@ use TYPO3\CMS\Core\Messaging\FlashMessage;
 use TYPO3\CMS\Core\Messaging\FlashMessageQueue;
 use TYPO3\CMS\Core\Messaging\FlashMessageService;
 use TYPO3\CMS\Core\Page\PageRenderer;
+use TYPO3\CMS\Core\RateLimiter\RateLimiterFactoryInterface;
 use TYPO3\CMS\Core\Type\ContextualFeedbackSeverity;
 use TYPO3\CMS\Core\Utility\ArrayUtility;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
@@ -54,7 +55,6 @@ use TYPO3\CMS\Extbase\Reflection\ReflectionService;
 use TYPO3\CMS\Extbase\Security\HashScope;
 use TYPO3\CMS\Extbase\Service\ExtensionService;
 use TYPO3\CMS\Extbase\Service\FileHandlingService;
-use TYPO3\CMS\Extbase\Service\RateLimitService;
 use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 use TYPO3\CMS\Extbase\Validation\Validator\ConjunctionValidator;
 use TYPO3\CMS\Extbase\Validation\ValidatorResolver;
@@ -105,7 +105,7 @@ abstract class ActionController implements ControllerInterface
     protected FileHandlingService $fileHandlingService;
     protected RequestInterface $request;
     protected UriBuilder $uriBuilder;
-    protected RateLimitService $rateLimitService;
+    protected RateLimiterFactoryInterface $rateLimiterFactory;
 
     /**
      * Contains the settings of the current extension
@@ -205,9 +205,9 @@ abstract class ActionController implements ControllerInterface
         $this->fileHandlingService = $fileHandlingService;
     }
 
-    public function injectRateLimitService(RateLimitService $rateLimitService): void
+    public function injectRateLimiterFactory(RateLimiterFactoryInterface $rateLimiterFactory): void
     {
-        $this->rateLimitService = $rateLimitService;
+        $this->rateLimiterFactory = $rateLimiterFactory;
     }
 
     /**
@@ -925,9 +925,14 @@ abstract class ActionController implements ControllerInterface
             ->getMethod($this->actionMethodName)
             ->getRateLimit();
 
-        if (!$rateLimit
-            || !$this->rateLimitService->isRequestRateLimited($request, static::class . '::' . $this->actionMethodName, $rateLimit)
-        ) {
+        if (!$rateLimit) {
+            return null;
+        }
+
+        $identifier = strtolower(str_replace('\\', '-', static::class) . '-' . $this->actionMethodName);
+        $rateLimiter = $this->rateLimiterFactory->createRequestBasedLimiter($this->request, $rateLimit->getConfiguration($identifier));
+        $limit = $rateLimiter->consume();
+        if ($limit->isAccepted()) {
             return null;
         }
 

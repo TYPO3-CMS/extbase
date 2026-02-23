@@ -36,4 +36,14 @@ class RateLimit
             throw new \RuntimeException('Invalid "policy" property for rate limit.', 1771074440);
         }
     }
+
+    public function getConfiguration(string $identifier): array
+    {
+        return [
+            'id' => 'extbase-' . $identifier,
+            'policy' => $this->policy,
+            'limit' => $this->limit,
+            'interval' => $this->interval,
+        ];
+    }
 }
