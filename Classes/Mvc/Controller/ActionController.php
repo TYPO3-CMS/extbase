@@ -767,7 +767,7 @@ abstract class ActionController implements ControllerInterface
         if (MathUtility::canBeInterpretedAsInteger($pageUid)) {
             $this->uriBuilder->setTargetPageUid((int)$pageUid);
         }
-        if (GeneralUtility::getIndpEnv('TYPO3_SSL')) {
+        if ($this->request->getAttribute('normalizedParams')->isHttps()) {
             $this->uriBuilder->setAbsoluteUriScheme('https');
         }
         $uri = $this->uriBuilder->uriFor($actionName, $arguments, $controllerName, $extensionName);
