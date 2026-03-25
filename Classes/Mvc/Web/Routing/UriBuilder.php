@@ -23,7 +23,6 @@ use TYPO3\CMS\Backend\Routing\Route;
 use TYPO3\CMS\Core\Http\ApplicationType;
 use TYPO3\CMS\Core\Utility\ArrayUtility;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
-use TYPO3\CMS\Core\Utility\HttpUtility;
 use TYPO3\CMS\Extbase\DomainObject\AbstractValueObject;
 use TYPO3\CMS\Extbase\DomainObject\DomainObjectInterface;
 use TYPO3\CMS\Extbase\Mvc\Exception\InvalidArgumentValueException;
@@ -544,7 +543,7 @@ class UriBuilder
         if (!empty($this->arguments)) {
             $arguments = $this->convertDomainObjectsToIdentityArrays($this->arguments);
             $this->lastArguments = $arguments;
-            $typolinkConfiguration['additionalParams'] = HttpUtility::buildQueryString($arguments, '&');
+            $typolinkConfiguration['queryParameters'] = $arguments;
         }
         if ($this->addQueryString && $this->addQueryString !== 'false') {
             $typolinkConfiguration['addQueryString'] = $this->addQueryString;

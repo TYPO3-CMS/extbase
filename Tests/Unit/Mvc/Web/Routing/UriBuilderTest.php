@@ -527,7 +527,7 @@ final class UriBuilderTest extends UnitTestCase
         $subject->setArguments(['somePrefix' => ['someDomainObject' => StringBackedEnum::FirstCase]]);
         self::assertEquals([
             'parameter' => 1,
-            'additionalParams' => '&somePrefix%5BsomeDomainObject%5D=' . StringBackedEnum::FirstCase->value,
+            'queryParameters' => ['somePrefix' => ['someDomainObject' => StringBackedEnum::FirstCase->value]],
         ], $subject->_call('buildTypolinkConfiguration'));
     }
 
@@ -552,7 +552,7 @@ final class UriBuilderTest extends UnitTestCase
         $subject->setArguments(['somePrefix' => ['someStringableObject' => $stringable]]);
         self::assertEquals([
             'parameter' => 1,
-            'additionalParams' => '&somePrefix%5BsomeStringableObject%5D=string-from-stringable',
+            'queryParameters' => ['somePrefix' => ['someStringableObject' => 'string-from-stringable']],
         ], $subject->_call('buildTypolinkConfiguration'));
     }
 
@@ -586,7 +586,6 @@ final class UriBuilderTest extends UnitTestCase
         self::assertNull($subject->getTargetPageUid());
         self::assertEquals(0, $subject->getTargetPageType());
         self::assertFalse($subject->getNoCache());
-        self::assertFalse($subject->getNoCache());
         self::assertNull($subject->getAbsoluteUriScheme());
     }
 
@@ -605,7 +604,7 @@ final class UriBuilderTest extends UnitTestCase
         $subject = $this->getAccessibleMock(UriBuilder::class, null, [], '', false);
         $subject->setTargetPageUid(123);
         $subject->setArguments(['foo' => 'bar', 'baz' => ['extbase' => 'fluid']]);
-        $expectedConfiguration = ['parameter' => 123, 'additionalParams' => '&foo=bar&baz%5Bextbase%5D=fluid'];
+        $expectedConfiguration = ['parameter' => 123, 'queryParameters' => ['foo' => 'bar', 'baz' => ['extbase' => 'fluid']]];
         $actualConfiguration = $subject->_call('buildTypolinkConfiguration');
         self::assertEquals($expectedConfiguration, $actualConfiguration);
     }
@@ -679,7 +678,7 @@ final class UriBuilderTest extends UnitTestCase
             'someDomainObject' => $mockDomainObject1,
             'baz' => ['someOtherDomainObject' => $mockDomainObject2],
         ]);
-        $expectedConfiguration = ['parameter' => 123, 'additionalParams' => '&someDomainObject=123&baz%5BsomeOtherDomainObject%5D=321'];
+        $expectedConfiguration = ['parameter' => 123, 'queryParameters' => ['someDomainObject' => 123, 'baz' => ['someOtherDomainObject' => 321]]];
         self::assertEquals($expectedConfiguration, $subject->_call('buildTypolinkConfiguration'));
     }
 
