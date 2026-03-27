@@ -167,7 +167,10 @@ class MvcPropertyMappingConfigurationService implements SingletonInterface
 
         foreach ($propertyConfiguration as $innerKey => $innerValue) {
             if (is_array($innerValue)) {
-                $this->modifyPropertyMappingConfiguration($innerValue, $propertyMappingConfiguration->forProperty($innerKey));
+                $this->modifyPropertyMappingConfiguration(
+                    $innerValue,
+                    $propertyMappingConfiguration->forProperty((string)$innerKey)
+                );
             }
             $propertyMappingConfiguration->allowProperties($innerKey);
         }

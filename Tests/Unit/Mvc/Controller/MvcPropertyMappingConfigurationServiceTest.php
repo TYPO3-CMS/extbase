@@ -322,6 +322,27 @@ final class MvcPropertyMappingConfigurationServiceTest extends UnitTestCase
         self::assertTrue($propertyMappingConfiguration->forProperty('bar')->shouldMap('foo'));
     }
 
+    #[Test]
+    public function initializePropertyMappingConfigurationSetsAllowedNestedFieldsRecursively(): void
+    {
+        $trustedProperties = [
+            'foo' => [
+                'bar' => [
+                    ['foo' => 1],
+                    ['bar' => 1],
+                    ['baz' => 1],
+                ],
+            ],
+        ];
+        $arguments = $this->initializePropertyMappingConfiguration($trustedProperties);
+        $propertyMappingConfiguration = $arguments->getArgument('foo')->getPropertyMappingConfiguration();
+        self::assertFalse($propertyMappingConfiguration->shouldMap('someProperty'));
+        self::assertTrue($propertyMappingConfiguration->shouldMap('bar'));
+        self::assertTrue($propertyMappingConfiguration->forProperty('bar.0')->shouldMap('foo'));
+        self::assertTrue($propertyMappingConfiguration->forProperty('bar.1')->shouldMap('bar'));
+        self::assertTrue($propertyMappingConfiguration->forProperty('bar.2')->shouldMap('baz'));
+    }
+
     /**
      * Helper which initializes the property mapping configuration and returns arguments
      */
