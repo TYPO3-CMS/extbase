@@ -109,7 +109,7 @@ class ExtbasePluginEnhancer extends PluginEnhancer
             array_intersect_key($configuration, ['_controller' => true])
         );
         $route->setDefaults($defaults);
-        $this->applyRouteAspects($route, $this->aspects ?? [], $this->namespace);
+        $this->applyRouteAspects($route, $this->aspects, $this->namespace);
         $this->applyRequirements($route, $this->configuration['requirements'] ?? [], $this->namespace);
         $this->applyStaticVariables($route, $this->configuration['static'] ?? [], $this->namespace);
         return $route;
